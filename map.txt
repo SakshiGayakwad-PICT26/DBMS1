@@ -1,0 +1,223 @@
+db.student.insertOne({
+stud_id:1,
+name:"sakshi",
+age:20,
+dept:"CS",
+skills:["Travelling","Photography","Dancing"],
+marks: [
+{subject:"TOC",marks:25},
+{subject:"DBMS",marks:28}
+]
+});
+
+db.student.insertMany([{
+stud_id:2,
+name:"siddhi",
+age:2,
+dept:"IT",
+skills:["Travelling","Cooking","Dancing"],
+marks: [
+{subject:"CNS",marks:22},
+{subject:"DBMS",marks:23}
+]
+},
+{
+stud_id:3,
+name:"Shreya",
+age:22,
+dept:"CS",
+skills:["Vlogging","Shopping","Dancing"],
+marks: [
+{subject:"TOC",marks:27},
+{subject:"LP",marks:26}
+]
+}
+]);
+
+db.student.insertMany([
+    {
+        stud_id: 4,
+        name: "Amit",
+        age: 21,
+        dept: "EE",
+        skills: ["Photography", "Reading", "Traveling"],
+        marks: [
+            { subject: "Circuit Analysis", marks: 30 },
+            { subject: "Power Systems", marks: 29 }
+        ]
+    },
+    {
+        stud_id: 5,
+        name: "Neha",
+        age: 20,
+        dept: "EE",
+        skills: ["Sketching", "Gaming", "Music"],
+        marks: [
+            { subject: "Thermodynamics", marks: 25 },
+            { subject: "Fluid Mechanics", marks: 27 }
+        ]
+    }
+]);
+
+
+db.student.updateOne({name:"sakshi"},{$set:{name:"sakshiii}});
+
+db.student.updateMany({dept:"CS"},{$set:{dept:"Computer Engineering"}});
+
+db.student.deleteOne({name:"sakshii"});
+
+
+db.student.find({
+$and:[{age:{$gt:20}},{dept:"Computer Engineering"}]
+});
+
+db.student.find({
+$or:[{age:{$gt:20}},{dept:"Computer Engineering"}]
+});
+
+db.student.find({
+age: {$not:{$gte:20}}
+});
+---------
+db.student.updateOne(
+{ _id: ObjectId('6729e8cb0f5e788f699f990b')},
+{
+$set:{
+    stud_id: 2,
+    name: 'siddhi',
+    age: 21,
+    dept: 'IT',
+    skills: [ 'Travelling', 'Cooking', 'Dancing' ],
+    marks: [ { subject: 'CNS', marks: 22 }, { subject: 'DBMS', marks: 23 } ]
+}
+},
+{upsert:true}
+);
+--------
+db.student.updateOne(
+  { name: 'sakshi' },
+  { $push: { marks: { subject: 'Networking', marks: 30 } } }
+);
+
+db.student.updateOne(
+  { name: 'sakshi' },
+  { $pull: { marks: { subject: 'Networking', marks: 30 } } }
+);
+
+--------
+
+
+db.student.aggregate([
+
+{$group:{
+_id:"$name",
+averagesalary:{$avg:"$salary"}
+}
+}
+
+]);
+
+
+db.student.aggregate([
+{
+$group:{
+_id:"$dept",
+count:{$sum:1}
+}
+}
+]);
+
+
+db.student.aggregate([
+{
+$group:
+{_id:"$dept",
+maxsal:{$max:"$salary"},
+minsal:{$min:"$salary"}
+}
+}
+]);
+
+db.student.aggregate([
+{$sort:{salary:1}}
+]);
+
+db.student.aggregate([
+
+{$match:{salary:{$gt:50000}}}
+]);
+
+db.student.aggregate([{$project:{name:1,salary:1,_id:0}}]);
+
+db.student.aggregate([
+{$sort:{salary:1}}
+{$limit:3}
+]);
+
+db.students.aggregate([
+  { $unwind: "$marks" },
+  {
+    $group: {
+      _id: "$name",
+      averageMarks: { $avg: "$marks.marks" }
+    }
+  }
+]);
+
+----
+ db.student.createIndex({stud_id:1});
+stud_id_1
+test> db.student.find({stud_id:5});
+[
+  {
+    _id: ObjectId('6729ea8f0f5e788f699f990f'),
+    stud_id: 5,
+    name: 'Neha',
+    age: 20,
+    dept: 'EE',
+    skills: [ 'Sketching', 'Gaming', 'Music' ],
+    marks: [
+      { subject: 'Thermodynamics', marks: 25 },
+      { subject: 'Fluid Mechanics', marks: 27 }
+    ],
+    salary: 48000
+  }
+]
+test> db.student.getIndexes();
+[
+  { v: 2, key: { _id: 1 }, name: '_id_' },
+  { v: 2, key: { stud_id: 1 }, name: 'stud_id_1' }
+]
+test> db.student.dropIndex("stud_id_1");
+{ nIndexesWas: 2, ok: 1 }
+test> db.student.getIndexes();
+[ { v: 2, key: { _id: 1 }, name: '_id_' } ]
+test>
+------
+
+var mapFunction=function(){
+emit(this.dept,1)
+};
+var reduceFunction=function(key,values)
+{
+return Array.sum(values);
+};
+db.student.mapReduce(
+mapFunction,
+reduceFunction,
+{out:"emp_count"
+}
+);
+
+var mapFunction = function() {
+      for (var i = 0; i < this.marks.length; i++) {
+        emit(this.marks[i].subject, 1);     }
+};
+
+var reduceFunction = function(key, values) {
+    return Array.sum(values); };
+
+db.students.mapReduce(
+    mapFunction,
+    reduceFunction,
+    { out: "marks" } );

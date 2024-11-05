@@ -1,0 +1,349 @@
+DELIMITER //
+
+CREATE PROCEDURE myprocedure(IN rollno INT, IN bookname VARCHAR(100))
+BEGIN
+    -- Declare variables and handlers at the beginning
+    DECLARE issuedate DATE;
+    DECLARE daysdiff INT;
+    DECLARE fineamt DECIMAL(10,2);
+
+
+    DECLARE CONTINUE HANDLER FOR SQLSTATE '23000' -- Duplicate entry
+    BEGIN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Duplicate entry error occurred while inserting into fines';
+    END;
+
+    -- Check for NULL values for roll number or book name
+    IF rollno IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Roll number cannot be NULL';
+    END IF;
+
+    IF bookname IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Book name cannot be NULL';
+    END IF;
+
+    -- Fetch the issue date for the specified borrower and book
+    SELECT issue_date INTO issuedate
+    FROM borrowers
+    WHERE roll_no = rollno AND book_name = bookname AND status = 'I';
+
+    -- Check if no record is found
+    IF issuedate IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No record found or book is already returned';
+    ELSE
+        -- Calculate the number of days since the book was issued
+        SET daysdiff = DATEDIFF(CURDATE(), issuedate);
+
+        -- Determine the fine amount based on the number of days
+        IF daysdiff > 30 THEN
+            SET fineamt = (daysdiff -14)*5;
+        ELSEIF daysdiff BETWEEN 15 AND 30 THEN
+            SET fineamt = (daysdiff -14)*5;
+        ELSE
+            SET fineamt = 0;
+        END IF;
+
+        -- Update the status of the book to 'R'
+        UPDATE borrowers
+        SET status = 'R'
+        WHERE roll_no = rollno AND book_name = bookname;
+
+        -- If there is a fine, insert it into the fines table
+        IF fineamt > 0 THEN
+           INSERT INTO fines (roll_no, fine_date, amt) VALUES (rollno, CURDATE(), fineamt);
+
+        END IF;
+    END IF;
+
+END //
+
+DELIMITER ;
+
+
+-------
+DELIMITER //
+
+CREATE PROCEDURE calculate_circle_areas(IN start_radius DECIMAL(5, 2), IN end_radius DECIMAL(5, 2))
+BEGIN
+    DECLARE radius DECIMAL(5, 2);
+    DECLARE area DECIMAL(10, 2);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        -- Handle general SQL exceptions
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'An error occurred while calculating areas';
+    END;
+
+    START TRANSACTION;
+
+    -- Loop through radius values from start_radius to end_radius
+    SET radius = start_radius;
+    WHILE radius <= end_radius DO
+        SET area = ROUND(PI() * POWER(radius, 2), 2); -- Calculate area
+        INSERT INTO areas (radius, area) VALUES (radius, area); -- Insert into areas table
+        SET radius = ROUND(radius + 1, 2); -- Increment radius
+    END WHILE;
+
+    COMMIT;
+END //
+
+DELIMITER ;
+----
+delimiter //
+create function assign(stud_marks int)
+returns varchar(20)
+DETERMINISTIC
+begin
+declare result varchar(20);
+case
+when stud_marks<=1500 and stud_marks>=990
+then set result= "Destinction";
+when stud_marks<=989 and stud_marks>=900
+then set result="First class";
+when stud_marks<=899 and stud_marks>=825
+then set result= "Higher second class";
+else
+set result="No grade";
+end case;
+return result;
+end
+//
+delimiter ;
+
+delimiter //
+create procedure calClass(IN rollno int)
+pro_label:begin
+declare grade varchar(20);
+declare stud_name varchar(20);
+declare stud_marks int;
+      declare exit handler for sqlexception
+    begin
+        select 'An error occurred while processing the request' as error_message;
+    end;
+    select name,marks  into stud_name,stud_marks from Student where Student.rollno=rollno;
+   if stud_marks < 0 or stud_marks > 1500 then
+        select 'Invalid marks value. Marks must be between 0 and 1500.' as error_message;
+       
+        leave pro_label;
+    end if;
+set grade=assign(stud_marks);
+insert into result values(rollno,stud_name,grade);
+end //
+delimiter ;
+------
+delimiter //
+
+create procedure mycursor()
+begin
+declare done INT default FALSE;
+declare e_id int;
+declare name varchar(20);
+
+declare c1 cursor for
+select O_e_id,e_name from oldTable;
+
+declare continue handler for not found set done=true;
+
+open c1;
+
+read_loop:
+LOOP
+fetch c1 into e_id,name;
+
+
+if done then 
+leave read_loop;
+end if;
+insert ignore into newTable values(e_id,name);
+
+END LOOP read_loop;
+
+close c1;
+end;
+
+------
+create trigger mytrigger
+before update on library
+for each row
+begin
+insert into library_audit values(old.bno,old.bname,old.author,old.allowed_days,'UPDATE',curdate());
+end
+
+create trigger mytrigger1
+after delete on library 
+for each row 
+begin
+insert into library_audit values(old.bno,old.bname,old.author,old.allowed_days,'DELETE',current_timestamp);
+end
+-------------
+package ass8;
+
+//import java.sql.Connection;
+//import java.sql.DriverManager;
+//import java.sql.ResultSet;
+//import java.sql.Statement;
+import java.sql.*;
+import java.util.Scanner;
+import static java.lang.System.exit;
+
+public class crud {
+	public static void create() {
+		final String url = "jdbc:mysql://localhost:3306/mydb";
+		final String uname = "root";
+		final String pass = "borse@7121";
+
+		Scanner sc = new Scanner(System.in);
+
+		System.out.println("Enter the rollno");
+		int rollno = sc.nextInt();
+		sc.nextLine(); // Consume newline
+		System.out.println("Enter the name");
+		String name = sc.nextLine();
+
+		String query = String.format("INSERT INTO data VALUES (%d, '%s')", rollno, name);
+
+		Connection con;
+		try {
+			con = DriverManager.getConnection(url, uname, pass);
+			Statement st = con.createStatement();
+			int row = st.executeUpdate(query);
+			if (row == 1) {
+				System.out.println("Done");
+			} else {
+				System.out.println("Error");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static void update() {
+		final String url = "jdbc:mysql://localhost:3306/mydb";
+		final String uname = "root";
+		final String pass = "borse@7121";
+
+		Scanner sc = new Scanner(System.in);
+
+		System.out.println("1. Roll no");
+		System.out.println("2. Name");
+		int choice = sc.nextInt();
+		sc.nextLine(); // Consume newline
+
+		String query = "";
+		if (choice == 1) {
+			System.out.println("Enter the name:");
+			String name = sc.nextLine();
+			System.out.println("Enter the new rollno:");
+			int rollno = sc.nextInt();
+			query = String.format("UPDATE data SET rollno = %d WHERE name = '%s'", rollno, name);
+		} else if (choice == 2) {
+			System.out.println("Enter the rollno:");
+			int rollno = sc.nextInt();
+			sc.nextLine(); // Consume newline
+			System.out.println("Enter the new name:");
+			String name = sc.nextLine();
+			query = String.format("UPDATE data SET name = '%s' WHERE rollno = %d", name, rollno);
+		}
+
+		Connection con;
+		try {
+			con = DriverManager.getConnection(url, uname, pass);
+			Statement st = con.createStatement();
+			int row = st.executeUpdate(query);
+			if (row == 1) {
+				System.out.println("Done");
+			} else {
+				System.out.println("Error");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static void deletedata() {
+		final String url = "jdbc:mysql://localhost:3306/mydb";
+		final String uname = "root";
+		final String pass = "borse@7121";
+
+		Scanner sc = new Scanner(System.in);
+
+		System.out.println("Enter the rollno");
+		int rollno = sc.nextInt();
+
+		String query = String.format("DELETE FROM data WHERE rollno = %d", rollno);
+
+		Connection con;
+		try {
+			con = DriverManager.getConnection(url, uname, pass);
+			Statement st = con.createStatement();
+			int row = st.executeUpdate(query);
+			if (row == 1) {
+				System.out.println("Done");
+			} else {
+				System.out.println("Error");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static void read() {
+		final String url = "jdbc:mysql://10.10.13.97:3306/mydb";
+		final String uname = "root";
+		final String pass = "borse@7121";
+
+		String query = "SELECT * FROM data";
+
+		Connection con;
+		try {
+			con = DriverManager.getConnection(url, uname, pass);
+			Statement st = con.createStatement();
+			ResultSet rs = st.executeQuery(query);
+			while (rs.next()) {
+				int rollno = rs.getInt("rollno");
+				String name = rs.getString("name");
+
+				System.out.println("Stud-id: " + rollno + " Name: " + name);
+			}
+			menu();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static void menu() {
+		System.out.println("1. Create");
+		System.out.println("2. Read");
+		System.out.println("3. Update");
+		System.out.println("4. Delete");
+		System.out.println("5. Exit");
+
+		Scanner sc = new Scanner(System.in);
+		int choice = sc.nextInt();
+		switch (choice) {
+			case 1:
+				create();
+				break;
+			case 2:
+				read();
+				break;
+			case 3:
+				update();
+				break;
+			case 4:
+				deletedata();
+				break;
+			case 5:
+				exit(0);
+			default:
+				System.out.println("Wrong input");
+				menu();
+		}
+	}
+
+	public static void main(String[] args) {
+		menu();
+	}
+}
+
+
